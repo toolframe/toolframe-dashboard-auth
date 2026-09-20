@@ -5,9 +5,25 @@ Streamlit **Access passwords** page. It depends on the `toolframe.auth` service
 and SDK 0.2. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
 
-The management page creates generated/custom passwords, selects scopes and an
-optional UTC expiry, edits expiry/grants, revokes records and shows creation,
-last-login and last-use timestamps. Generated secrets are revealed once. Its page
+The management page fills in an editable **Unnamed password** label, adding a
+number for names already in use. The password field accepts 8–32 characters and
+shows a stable random suggestion as its placeholder. Leave the field blank to use
+that exact suggestion; after creation, copy the one-time displayed password.
+Failed submissions preserve the draft; successful creation starts a fresh one.
+
+**Set expiry** immediately reveals a duration and unit side by side, with minutes,
+hours, days, weeks or calendar months and a calculated local expiry preview.
+Preview and record timestamps use the browser's timezone (its UTC offset is a
+fallback, then UTC if neither is available). Durations start when saved; months
+follow that local calendar and clamp to the destination month's last day. Other
+units measure elapsed time, including across daylight-saving changes. No
+date/time entry is needed.
+Turning expiry off hides the controls and saves no expiry. When editing, leave the
+duration blank to preserve the exact existing expiry, or enter a duration to
+replace it. Saving other grant fields never silently extends the expiry.
+
+The page selects scopes, edits grants, revokes records and shows creation,
+last-login and last-use timestamps. Its page
 requires `system.auth.passwords`; access-policy controls additionally require
 `system.settings.manage`. Core/auth enforce the same rules beyond the UI.
 

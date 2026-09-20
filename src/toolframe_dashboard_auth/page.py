@@ -1,21 +1,95 @@
 """UI-only auth integration; credentials remain in the auth service."""
 
-from datetime import UTC, datetime, timedelta
+import calendar
+import secrets
+from datetime import UTC, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from toolframe_sdk import PluginError
 
 
-def timestamp(value):
+def browser_timezone(name, offset):
+    if name:
+        try:
+            return ZoneInfo(name)
+        except ZoneInfoNotFoundError, ValueError:
+            pass
+    if offset is not None and -1440 < offset < 1440:
+        return timezone(-timedelta(minutes=offset))
+    return UTC
+
+
+def timestamp(value, zone=UTC):
     return (
-        datetime.fromtimestamp(value, UTC).isoformat(timespec="seconds")
+        datetime.fromtimestamp(value, zone).strftime("%Y-%m-%d %H:%M:%S %Z")
         if value is not None
         else "—"
     )
 
 
-def grant_fields(st, catalog, prefix, record=None):
+def unnamed_label(records):
+    labels = {record["label"] for record in records}
+    label, number = "Unnamed password", 1
+    while label in labels:
+        number += 1
+        label = f"Unnamed password {number}"
+    return label
+
+
+def expiry_after(now, amount, unit):
+    if unit == "Months":
+        month = now.year * 12 + now.month - 1 + amount
+        year, month = divmod(month, 12)
+        month += 1
+        return now.replace(
+            year=year,
+            month=month,
+            day=min(now.day, calendar.monthrange(year, month)[1]),
+        ).timestamp()
+    seconds = {"Minutes": 60, "Hours": 3600, "Days": 86400, "Weeks": 604800}[unit]
+    return now.timestamp() + amount * seconds
+
+
+def expiry_fields(st, prefix, expiry=None, zone=UTC):
+    limited = st.checkbox(
+        "Set expiry", value=expiry is not None, key=f"{prefix}-limited"
+    )
+    if not limited:
+        return None
+    with st.container(key=f"expiry-controls-{prefix}"):
+        duration_column, unit_column = st.columns(2, gap="small")
+    amount = duration_column.number_input(
+        "Expire after",
+        min_value=1,
+        max_value=3650,
+        value=None if expiry is not None else 1,
+        step=1,
+        placeholder="Keep current expiry",
+        help="From the time you save. Leave blank to keep an existing expiry.",
+        key=f"{prefix}-duration",
+    )
+    unit = unit_column.selectbox(
+        "Unit",
+        ["Minutes", "Hours", "Days", "Weeks", "Months"],
+        index=3,
+        key=f"{prefix}-unit",
+    )
+    result = expiry_after(datetime.now(zone), amount, unit) if amount else expiry
+    if result is not None:
+        st.caption(f"Expires on {timestamp(result, zone)}")
+    else:
+        st.caption("Enter a duration to set an expiry.")
+    return result
+
+
+def grant_fields(st, catalog, prefix, record=None, default_label="", zone=UTC):
     record = record or {}
-    label = st.text_input("Name", value=record.get("label", ""), key=f"{prefix}-label")
+    label = st.text_input(
+        "Name",
+        value=record.get("label", default_label),
+        max_chars=120,
+        key=f"{prefix}-label",
+    )
     all_business = st.checkbox(
         "All business scopes (including future plugins)",
         value=record.get("all_business", True),
@@ -33,37 +107,27 @@ def grant_fields(st, catalog, prefix, record=None):
             key=f"{prefix}-{owner}",
         )
         scopes.extend(selected)
-    expiry = record.get("expires_at")
-    limited = st.checkbox(
-        "Set expiry", value=expiry is not None, key=f"{prefix}-limited"
-    )
-    default = (
-        datetime.fromtimestamp(expiry, UTC)
-        if expiry
-        else datetime.now(UTC) + timedelta(days=7)
-    )
-    date = st.date_input(
-        "Expiry date (UTC)",
-        value=default.date(),
-        key=f"{prefix}-date",
-    )
-    time = st.time_input(
-        "Expiry time (UTC)",
-        value=default.time(),
-        key=f"{prefix}-time",
-    )
-    expires_at = datetime.combine(date, time, UTC).timestamp() if limited else None
     return {
-        "label": label,
+        "label": label.strip() or default_label,
         "scopes": scopes,
         "all_business": all_business,
-        "expires_at": expires_at,
+        "expires_at": expiry_fields(st, prefix, record.get("expires_at"), zone),
     }
 
 
 def render(context):
     import streamlit as st
 
+    zone = browser_timezone(st.context.timezone, st.context.timezone_offset)
+    # Streamlit stacks columns below 640px; this short pair still fits side by side.
+    st.html("""<style>
+    [class*="st-key-expiry-controls-"] [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap;
+    }
+    [class*="st-key-expiry-controls-"] [data-testid="stColumn"] {
+        min-width: 0; flex: 1 1 0; width: 0;
+    }
+    </style>""")
     st.title("Access passwords")
     try:
         settings = context.auth("catalog")
@@ -97,37 +161,67 @@ def render(context):
     st.caption(
         "System scopes are excluded by default. Names identify grants, not people. MCP, llms.txt and explicitly public business APIs stay public."
     )
-    with st.form("create-password", clear_on_submit=False):
+    if "password-draft" not in st.session_state:
+        st.session_state["password-draft"] = {
+            "key": f"new-{secrets.token_hex(8)}",
+            "label": unnamed_label(records),
+            "password": secrets.token_urlsafe(24),
+        }
+    draft = st.session_state["password-draft"]
+    # Regular widgets rerun immediately, so the expiry toggle can reveal its fields.
+    with st.container(border=True):
         st.subheader("New access password")
-        fields = grant_fields(st, settings["scopes"], "new")
-        generate = st.checkbox("Generate a random password", value=True)
-        custom = st.text_input(
-            "Custom password (12–1024 characters; ignored when generating)",
-            type="password",
-            max_chars=1024,
+        fields = grant_fields(
+            st,
+            settings["scopes"],
+            draft["key"],
+            default_label=draft["label"],
+            zone=zone,
         )
-        create = st.form_submit_button("Create password")
+        custom = st.text_input(
+            "Password (8–32 characters)",
+            type="password",
+            max_chars=32,
+            placeholder=draft["password"],
+            help="Leave blank to use the suggested password. Copy it after creation.",
+            key=f"{draft['key']}-password",
+        )
+        create = st.button("Create password")
     if create:
+        password = custom or draft["password"]
         try:
+            if not 8 <= len(password) <= 32:
+                raise PluginError(
+                    "invalid_request", "Passwords must contain 8–32 characters"
+                )
+            if (
+                st.session_state[f"{draft['key']}-limited"]
+                and fields["expires_at"] is None
+            ):
+                raise PluginError("invalid_request", "Enter an expiry duration")
             result = context.auth(
                 "create",
                 {
                     **fields,
-                    "password": None if generate else custom,
+                    "password": password,
                     "expected_revision": settings["revision"],
                 },
             )
         except PluginError as error:
             st.error(error.message)
         else:
-            st.success(
-                "Password created. Copy the generated password now; it cannot be retrieved later."
-            )
-            if result.get("password"):
-                st.code(result["password"], language=None)
-            if result.get("policy_error"):
-                st.error(result["policy_error"])
-            records = context.auth("list")["credentials"]
+            st.session_state["created-password"] = {
+                "password": password,
+                "policy_error": result.get("policy_error"),
+            }
+            del st.session_state["password-draft"]
+            st.rerun()
+    created = st.session_state.pop("created-password", None)
+    if created:
+        st.success("Password created. Copy it now; it cannot be retrieved later.")
+        st.code(created["password"], language=None)
+        if created["policy_error"]:
+            st.error(created["policy_error"])
     st.subheader("Password records")
     st.dataframe(
         [
@@ -136,7 +230,7 @@ def render(context):
                 "scopes": ", ".join(row["scopes"]),
                 "all_business": row["all_business"],
                 **{
-                    k: timestamp(row[k])
+                    k: timestamp(row[k], zone)
                     for k in (
                         "created_at",
                         "expires_at",
@@ -163,12 +257,21 @@ def render(context):
         if record["revoked_at"] is not None:
             st.info("Revoked. Create a new record to issue a new authorization.")
             return
-        with st.form(f"edit-{identifier}"):
-            fields = grant_fields(st, settings["scopes"], identifier, record)
-            edit = st.form_submit_button("Save password grant")
+        edit_key = f"{identifier}-{st.session_state.get('grant-edit-generation', 0)}"
+        with st.container(border=True):
+            fields = grant_fields(st, settings["scopes"], edit_key, record, zone=zone)
+            edit = st.button("Save password grant")
         if edit:
             try:
+                if (
+                    st.session_state[f"{edit_key}-limited"]
+                    and fields["expires_at"] is None
+                ):
+                    raise PluginError("invalid_request", "Enter an expiry duration")
                 context.auth("update", {"id": identifier, **fields})
+                st.session_state["grant-edit-generation"] = (
+                    st.session_state.get("grant-edit-generation", 0) + 1
+                )
                 st.rerun()
             except PluginError as error:
                 st.error(error.message)

@@ -1,6 +1,17 @@
-from streamlit.testing.v1 import AppTest
-from toolframe_sdk import RuntimeContext
+import time
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
+import pytest
+from streamlit.testing.v1 import AppTest
+from toolframe_sdk import PluginError, RuntimeContext
+
+from toolframe_dashboard_auth.page import (
+    browser_timezone,
+    expiry_after,
+    timestamp,
+    unnamed_label,
+)
 from toolframe_dashboard_auth.plugin import DashboardAuth, plugin
 
 
@@ -23,6 +34,8 @@ async def test_login_is_password_only_and_management_page_is_scoped():
 class Context:
     def __init__(self):
         self.calls = []
+        self.records = []
+        self.fail_create = False
 
     def can(self, scope):
         return scope != "system.settings.manage"
@@ -47,9 +60,33 @@ class Context:
                 "revision": "revision",
             }
         if action == "list":
-            return {"credentials": []}
+            return {"credentials": [record.copy() for record in self.records]}
         if action == "create":
-            return {"password": "one-time-generated-example"}
+            if self.fail_create:
+                raise PluginError("password_conflict", "Password already in use")
+            self.records.append(
+                {
+                    "id": str(len(self.records) + 1),
+                    **{
+                        k: params[k]
+                        for k in ("label", "scopes", "all_business", "expires_at")
+                    },
+                    "created_at": time.time(),
+                    "revoked_at": None,
+                    "last_login": None,
+                    "last_used": None,
+                }
+            )
+            return {"password": None}
+        if action in {"update", "revoke"}:
+            record = next(
+                record for record in self.records if record["id"] == params["id"]
+            )
+            if action == "update":
+                record.update(params)
+            else:
+                record["revoked_at"] = time.time()
+            return record.copy()
         raise AssertionError(action)
 
 
@@ -59,16 +96,27 @@ def app(context):
     render(context)
 
 
+def widget(ui, kind, label):
+    return next(item for item in getattr(ui, kind) if item.label == label)
+
+
 def test_create_defaults_exclude_system_scopes_and_reveals_secret_once():
     context = Context()
     ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
     assert not ui.exception
     assert all(not item.value for item in ui.multiselect)
     assert not any(button.label == "Save access policy" for button in ui.button)
-    next(item for item in ui.text_input if item.label == "Name").set_value("Colleague")
-    next(
-        button for button in ui.button if button.label == "Create password"
-    ).click().run()
+    assert widget(ui, "text_input", "Name").value == "Unnamed password"
+    suggested = widget(ui, "text_input", "Password (8–32 characters)").proto.placeholder
+    assert len(suggested) == 32
+    assert not ui.date_input and not ui.time_input and not ui.number_input
+    assert not any(item.label == "Generate a random password" for item in ui.checkbox)
+    widget(ui, "text_input", "Name").set_value("Colleague").run()
+    assert (
+        widget(ui, "text_input", "Password (8–32 characters)").proto.placeholder
+        == suggested
+    )
+    widget(ui, "button", "Create password").click().run()
     assert not ui.exception
     action, payload = next(call for call in context.calls if call[0] == "create")
     assert action == "create" and payload == {
@@ -76,62 +124,190 @@ def test_create_defaults_exclude_system_scopes_and_reveals_secret_once():
         "scopes": [],
         "all_business": True,
         "expires_at": None,
-        "password": None,
+        "password": suggested,
         "expected_revision": "revision",
     }
-    assert ui.code[0].value == "one-time-generated-example"
+    assert ui.code[0].value == suggested
+    assert "Copy it now" in ui.success[0].value
+    assert (
+        widget(ui, "text_input", "Password (8–32 characters)").proto.placeholder
+        != suggested
+    )
     ui.run()
     assert not ui.code
 
 
+@pytest.mark.parametrize(
+    "unit,seconds",
+    [("Minutes", 120), ("Hours", 7200), ("Days", 172800), ("Weeks", 1209600)],
+)
+def test_relative_expiry_reacts_immediately_and_uses_save_time(unit, seconds):
+    context = Context()
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    widget(ui, "checkbox", "Set expiry").set_value(True).run()
+    assert widget(ui, "number_input", "Expire after").value == 1
+    widget(ui, "number_input", "Expire after").set_value(2).run()
+    widget(ui, "selectbox", "Unit").select(unit).run()
+    assert any("Expires on" in item.value for item in ui.caption)
+    before = time.time()
+    widget(ui, "button", "Create password").click().run()
+    assert not ui.exception
+    expiry = context.records[0]["expires_at"]
+    assert before + seconds <= expiry <= time.time() + seconds
+    assert context.records[0]["label"] == "Unnamed password"
+    assert widget(ui, "text_input", "Name").value == "Unnamed password 2"
+
+
+def test_toggle_hides_expiry_and_submits_no_expiry():
+    context = Context()
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    widget(ui, "checkbox", "Set expiry").set_value(True).run()
+    widget(ui, "checkbox", "Set expiry").set_value(False).run()
+    assert not ui.number_input and not ui.selectbox
+    assert not any("Expires on" in item.value for item in ui.caption)
+    widget(ui, "text_input", "Name").set_value(" ")
+    widget(ui, "button", "Create password").click().run()
+    assert context.records[0]["expires_at"] is None
+    assert context.records[0]["label"] == "Unnamed password"
+
+
+def test_custom_password_validation_and_failure_preserve_draft():
+    context = Context()
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    password = widget(ui, "text_input", "Password (8–32 characters)")
+    suggested = password.proto.placeholder
+    assert password.proto.max_chars == 32
+    password.set_value("short")
+    widget(ui, "button", "Create password").click().run()
+    assert "8–32" in ui.error[0].value
+    assert not any(action == "create" for action, _ in context.calls)
+    assert (
+        widget(ui, "text_input", "Password (8–32 characters)").proto.placeholder
+        == suggested
+    )
+    widget(ui, "text_input", "Password (8–32 characters)").set_value("eightchr")
+    context.fail_create = True
+    widget(ui, "button", "Create password").click().run()
+    assert ui.error[0].value == "Password already in use"
+    assert widget(ui, "text_input", "Password (8–32 characters)").value == "eightchr"
+    assert (
+        widget(ui, "text_input", "Password (8–32 characters)").proto.placeholder
+        == suggested
+    )
+    context.fail_create = False
+    widget(ui, "button", "Create password").click().run()
+    assert not ui.exception
+    assert ui.code[0].value == "eightchr"
+    assert [
+        params["password"] for action, params in context.calls if action == "create"
+    ] == ["eightchr", "eightchr"]
+
+
+@pytest.mark.parametrize(
+    "start,amount,expected",
+    [
+        ("2026-01-31", 1, "2026-02-28"),
+        ("2028-01-31", 1, "2028-02-29"),
+        ("2026-12-31", 2, "2027-02-28"),
+        ("2026-01-31", 2, "2026-03-31"),
+    ],
+)
+def test_calendar_month_expiry_preserves_time_and_clamps_month_end(
+    start, amount, expected
+):
+    now = datetime.fromisoformat(start + "T14:23:45+00:00")
+    actual = datetime.fromtimestamp(expiry_after(now, amount, "Months"), UTC)
+    assert actual.isoformat() == expected + "T14:23:45+00:00"
+
+
+def test_default_name_skips_existing_names_including_revoked_records():
+    assert (
+        unnamed_label(
+            [
+                {"label": "Unnamed password"},
+                {"label": "Unnamed password 2", "revoked_at": 1},
+                {"label": "Unnamed password 3"},
+                {"label": "Colleague"},
+            ]
+        )
+        == "Unnamed password 4"
+    )
+
+
+def test_local_timezone_formatting_and_elapsed_duration_across_dst():
+    hong_kong = browser_timezone("Asia/Hong_Kong", 0)
+    value = datetime(2026, 9, 20, 14, 18, 45, tzinfo=UTC).timestamp()
+    assert timestamp(value, hong_kong) == "2026-09-20 22:18:45 HKT"
+    assert timestamp(None, hong_kong) == "—"
+    assert timestamp(value, browser_timezone("invalid/zone", -480)).endswith(
+        "22:18:45 UTC+08:00"
+    )
+    assert browser_timezone(None, None) is UTC
+    new_york = ZoneInfo("America/New_York")
+    spring = datetime(2026, 3, 8, 1, 30, tzinfo=new_york)
+    assert expiry_after(spring, 2, "Hours") - spring.timestamp() == 7200
+    february = datetime(2026, 2, 20, 14, 30, tzinfo=new_york)
+    march = datetime.fromtimestamp(expiry_after(february, 1, "Months"), new_york)
+    assert march.isoformat() == "2026-03-20T14:30:00-04:00"
+
+
+def test_duration_and_unit_share_a_row_and_use_browser_timezone(monkeypatch):
+    from streamlit.runtime.context import ContextProxy
+
+    monkeypatch.setattr(ContextProxy, "timezone", property(lambda _: "Asia/Hong_Kong"))
+    ui = AppTest.from_function(app, args=(Context(),), default_timeout=15).run()
+    widget(ui, "checkbox", "Set expiry").set_value(True).run()
+    assert not ui.exception
+    assert len(ui.columns) == 2
+    assert ui.columns[0].number_input[0].label == "Expire after"
+    assert ui.columns[1].selectbox[0].label == "Unit"
+    assert next(
+        item.value for item in ui.caption if item.value.startswith("Expires on")
+    ).endswith(" HKT")
+
+
 def test_expiry_edit_revocation_and_record_timestamps():
-    import time
-
-    class Existing(Context):
-        def __init__(self):
-            super().__init__()
-            self.record = {
-                "id": "ab" * 16,
-                "label": "Existing",
-                "scopes": ["notes.read"],
-                "all_business": False,
-                "created_at": time.time(),
-                "expires_at": None,
-                "revoked_at": None,
-                "last_login": time.time(),
-                "last_used": time.time(),
-            }
-
-        def auth(self, action, params=None):
-            if action == "list":
-                return {"credentials": [self.record.copy()]}
-            if action in {"update", "revoke"}:
-                self.calls.append((action, params))
-                if action == "update":
-                    self.record.update(params)
-                else:
-                    self.record["revoked_at"] = time.time()
-                return self.record.copy()
-            return super().auth(action, params)
-
-    context = Existing()
+    context = Context()
+    record = {
+        "id": "ab" * 16,
+        "label": "Existing",
+        "scopes": ["notes.read"],
+        "all_business": False,
+        "created_at": time.time(),
+        "expires_at": time.time() + 3600,
+        "revoked_at": None,
+        "last_login": time.time(),
+        "last_used": time.time(),
+    }
+    context.records = [record]
     ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
     assert not ui.exception
     assert {"created_at", "last_login", "last_used", "expires_at"} <= set(
         ui.dataframe[0].value.columns
     )
-    next(
-        item for item in ui.checkbox if item.key == context.record["id"] + "-limited"
-    ).set_value(True)
-    next(
-        button for button in ui.button if button.label == "Save password grant"
-    ).click().run()
+    assert widget(ui, "number_input", "Expire after").value is None
+    original_expiry = record["expires_at"]
+    widget(ui, "button", "Save password grant").click().run()
     assert not ui.exception
-    assert time.time() < context.record["expires_at"] < time.time() + 8 * 86400
+    assert record["expires_at"] == original_expiry
+    widget(ui, "number_input", "Expire after").set_value(1).run()
+    widget(ui, "selectbox", "Unit").select("Hours").run()
+    widget(ui, "button", "Save password grant").click().run()
+    assert time.time() + 3590 < record["expires_at"] <= time.time() + 3600
+    saved_expiry = record["expires_at"]
+    assert widget(ui, "number_input", "Expire after").value is None
+    widget(ui, "button", "Save password grant").click().run()
+    assert record["expires_at"] == saved_expiry
     next(
-        button for button in ui.button if button.label == "Revoke password"
-    ).click().run()
+        item
+        for item in ui.checkbox
+        if not item.key.startswith("new-") and item.label == "Set expiry"
+    ).set_value(False).run()
+    assert not ui.number_input
+    widget(ui, "button", "Save password grant").click().run()
+    assert record["expires_at"] is None
+    widget(ui, "button", "Revoke password").click().run()
     assert not ui.exception
-    assert context.record["revoked_at"] is not None
+    assert record["revoked_at"] is not None
     assert any("Revoked" in message.value for message in ui.info)
     assert not any(button.label == "Save password grant" for button in ui.button)
