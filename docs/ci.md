@@ -4,7 +4,7 @@
 
 Use Git, Bash, Python **3.14.7** and uv **0.12.8**, with network access to PyPI.
 The SDK checkout must contain commit
-`ef15b3575615839f24b2710beb3e40f9ae3ca2aa` (SDK 0.2.0).
+`833c415bd3a4f75613613d4f148d7a3a41a9528c` (SDK 0.2.0).
 
 ```sh
 uv python install 3.14.7

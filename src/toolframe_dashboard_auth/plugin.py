@@ -32,6 +32,23 @@ plugin = PluginDefinition(
     },
     resources=(
         Resource(
+            id="connections",
+            kind="dashboard.page",
+            title="Connected agents",
+            required_scopes=("system.auth.self",),
+            data={
+                "entrypoint": "toolframe_dashboard_auth.connections:render",
+                "order": 890,
+            },
+        ),
+        Resource(
+            id="users",
+            kind="dashboard.page",
+            title="User access",
+            required_scopes=("system.auth.users",),
+            data={"entrypoint": "toolframe_dashboard_auth.users:render", "order": 895},
+        ),
+        Resource(
             id="passwords",
             kind="dashboard.page",
             title="Access passwords",
@@ -43,7 +60,10 @@ plugin = PluginDefinition(
             kind="dashboard.page",
             title="MCP keys",
             required_scopes=("system.auth.mcp_keys",),
-            data={"entrypoint": "toolframe_dashboard_auth.mcp_page:render", "order": 910},
+            data={
+                "entrypoint": "toolframe_dashboard_auth.mcp_page:render",
+                "order": 910,
+            },
         ),
     ),
 )

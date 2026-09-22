@@ -15,7 +15,7 @@ from toolframe_dashboard_auth.page import (
 from toolframe_dashboard_auth.plugin import DashboardAuth, plugin
 
 
-async def test_login_is_password_only_and_management_page_is_scoped():
+async def test_login_supports_password_and_oidc_with_scoped_management_pages():
     provider = DashboardAuth(
         RuntimeContext(None, plugin_id="dashboard-auth", generation="test")
     )
@@ -23,7 +23,11 @@ async def test_login_is_password_only_and_management_page_is_scoped():
     assert 'name="password"' in html
     assert 'name="username"' not in html and 'name="token"' not in html
     assert 'action="/_toolframe/auth/login"' in html
-    assert plugin.resources[0].required_scopes == ("system.auth.passwords",)
+    assert "/_toolframe/oidc/providers" in html
+    scopes = {page.id: page.required_scopes for page in plugin.resources}
+    assert scopes["passwords"] == ("system.auth.passwords",)
+    assert scopes["users"] == ("system.auth.users",)
+    assert scopes["connections"] == ("system.auth.self",)
     assert all(
         method.audience == "internal"
         for service in plugin.services.values()

@@ -1,9 +1,17 @@
 # Toolframe Dashboard Auth
 
-The `dashboard-auth` provider supplies a password-only login page and an ordinary
-Streamlit **Access passwords** page. It depends on the `toolframe.auth` service
+The `dashboard-auth` provider supplies password and configured OIDC login choices,
+plus Streamlit access-management pages. It depends on the `toolframe.auth` service
 and SDK 0.2. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
+
+With compatible Core/Auth and `toolframe-oidc-auth` installed, the login page
+loads provider buttons from Core's safe provider catalogue. **Connected agents**
+requires `system.auth.self` and lets a federated user revoke their own connections
+without logging out. **User access** requires `system.auth.users` and manages
+permissions/disablement for identities already admitted by application
+configuration. Disabling a user revokes their browser sessions and agent grants.
+The pages call Core's protected facade; no upstream credentials enter Streamlit.
 
 The optional **MCP keys** page requires `system.auth.mcp_keys` and manages named
 256-bit bearer keys through core's separate MCP auth API. Install/enable
