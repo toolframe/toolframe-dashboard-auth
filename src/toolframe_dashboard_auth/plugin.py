@@ -38,5 +38,12 @@ plugin = PluginDefinition(
             required_scopes=("system.auth.passwords",),
             data={"entrypoint": "toolframe_dashboard_auth.page:render", "order": 900},
         ),
+        Resource(
+            id="mcp-keys",
+            kind="dashboard.page",
+            title="MCP keys",
+            required_scopes=("system.auth.mcp_keys",),
+            data={"entrypoint": "toolframe_dashboard_auth.mcp_page:render", "order": 910},
+        ),
     ),
 )

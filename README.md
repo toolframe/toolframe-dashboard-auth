@@ -5,6 +5,14 @@ Streamlit **Access passwords** page. It depends on the `toolframe.auth` service
 and SDK 0.2. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
 
+The optional **MCP keys** page requires `system.auth.mcp_keys` and manages named
+256-bit bearer keys through core's separate MCP auth API. Install/enable
+`toolframe-mcp-auth` to generate keys, select business scopes and expiry, copy each
+secret once and revoke it later. `system.settings.manage` also permits changing
+the independent MCP public/protected policy. The page remains available for policy
+recovery when the MCP auth provider is absent. See the MCP authentication guide
+in the core repository for configuration details.
+
 The management page fills in an editable **Unnamed password** label, adding a
 number for names already in use. The password field accepts 8–32 characters and
 shows a stable random suggestion as its placeholder. Leave the field blank to use
