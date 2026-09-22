@@ -6,6 +6,9 @@ build-backend = "hatchling.build"
 name = "toolframe-dashboard-auth"
 version = "0.1.1"
 description = "Password login and access management pages for Toolframe"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.14"
 dependencies = ["toolframe-sdk==0.2.0"]
 
