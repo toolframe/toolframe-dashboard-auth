@@ -39,6 +39,13 @@ uv run ruff check src tests
 uv build --wheel
 ```
 
+For the same isolated validation used by GitHub Actions, run `bash scripts/ci.sh`
+with Python 3.14.7, uv 0.12.8 and a sibling `toolframe-sdk` Git checkout available.
+This runs the presentation tests against a newly built wheel, checks both
+distributions, and verifies a separate installation with only runtime dependencies.
+See [CI and publishing](docs/ci.md) for the pinned SDK revision, workflow triggers,
+release prerequisites and local validation limits.
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

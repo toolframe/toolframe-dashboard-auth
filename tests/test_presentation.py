@@ -102,7 +102,8 @@ def widget(ui, kind, label):
 
 def test_create_defaults_exclude_system_scopes_and_reveals_secret_once():
     context = Context()
-    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    # Cold pandas/PyArrow native imports need extra time; later runs still use 15s.
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run(timeout=60)
     assert not ui.exception
     assert all(not item.value for item in ui.multiselect)
     assert not any(button.label == "Save access policy" for button in ui.button)
