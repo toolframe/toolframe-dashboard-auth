@@ -159,7 +159,7 @@ def render(context):
                 except PluginError as error:
                     st.error(error.message)
     st.caption(
-        "System scopes are excluded by default. Names identify grants, not people. MCP, llms.txt and explicitly public business APIs stay public."
+        "System scopes are excluded by default. Names identify grants, not people. MCP has a separate access policy. llms.txt and explicitly public business APIs stay public."
     )
     if "password-draft" not in st.session_state:
         st.session_state["password-draft"] = {
