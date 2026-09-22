@@ -125,3 +125,7 @@ actual OIDC upload. Presentation behavior is covered by the existing Streamlit
 AppTest suite; authentication enforcement remains owned by Core/auth. Preparing
 these files does not push commits, create tags remotely, register publishers or
 deploy a release.
+
+The first Streamlit AppTest render has a bounded 60-second timeout to allow
+cold native-library imports. Later interactions retain their shorter timeout;
+assertions remain active and the suite does not retry failures.
