@@ -131,7 +131,6 @@ def render(context):
     st.title("Access passwords")
     try:
         settings = context.auth("catalog")
-        records = context.auth("list")["credentials"]
     except PluginError as error:
         st.error(error.message)
         return
@@ -212,6 +211,11 @@ def render(context):
     st.caption(
         "System scopes are excluded by default. Names identify grants, not people. MCP has a separate access policy. llms.txt and explicitly public business APIs stay public."
     )
+    try:
+        records = context.auth("list")["credentials"]
+    except PluginError as error:
+        st.error(error.message)
+        return
     if "password-draft" not in st.session_state:
         st.session_state["password-draft"] = {
             "key": f"new-{secrets.token_hex(8)}",

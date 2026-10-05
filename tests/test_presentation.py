@@ -40,6 +40,7 @@ class Context:
         self.calls = []
         self.records = []
         self.fail_create = False
+        self.fail_list = False
         self.settings_manager = False
         self.policy = {
             "mode": "public",
@@ -90,6 +91,10 @@ class Context:
             )
             return {"mode": self.policy["mode"]}
         if action == "list":
+            if self.fail_list:
+                raise PluginError(
+                    "auth_unavailable", "Password provider is unavailable"
+                )
             return {"credentials": [record.copy() for record in self.records]}
         if action == "create":
             if self.fail_create:
@@ -174,6 +179,22 @@ def test_older_core_does_not_offer_an_unsupported_failure_policy_control():
     assert "failure_mode" not in next(
         params for action, params in context.calls if action == "policy"
     )
+
+
+def test_policy_recovery_controls_survive_password_provider_failure():
+    context = Context()
+    context.settings_manager = True
+    context.fail_list = True
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    assert not ui.exception
+    assert ui.error[0].value == "Password provider is unavailable"
+    assert any("**MCP:** public" in item.value for item in ui.markdown)
+    widget(ui, "selectbox", "Dashboard access").select("protected").run()
+    widget(ui, "button", "Save access policy").click().run()
+    assert not ui.exception
+    assert context.policy["mode"] == "protected"
+    assert context.policy["failure_mode"] == "closed"
+    assert not any(button.label == "Create password" for button in ui.button)
 
 
 def test_create_defaults_exclude_system_scopes_and_reveals_secret_once():

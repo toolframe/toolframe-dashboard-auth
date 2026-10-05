@@ -20,6 +20,9 @@ existing application choices are preserved. Older Core versions keep the existin
 policy controls but do not offer the unsupported failure-policy editor. Public
 HTTP declarations and llms documents remain public, and method scopes do not
 provide per-person row isolation.
+While this page is available, credential-list errors leave its policy controls
+usable by local operators. If Dashboard Auth itself is unavailable, use Core's
+local management API for recovery.
 
 With compatible Core/Auth and `toolframe-oidc-auth` installed, the login page
 loads provider buttons from Core's safe provider catalogue. **Connected agents**
