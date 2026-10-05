@@ -135,6 +135,32 @@ def render(context):
     except PluginError as error:
         st.error(error.message)
         return
+    entrances = settings.get("entrances")
+    if entrances:
+        with st.expander("Access by entrance", expanded=True):
+            dashboard, mcp = entrances["dashboard"], entrances["mcp"]
+            st.markdown(
+                f"**Dashboard and service calls:** {dashboard['mode']} "
+                f"(configured: {dashboard['configured']}). "
+                f"**MCP:** {mcp['mode']} (configured: {mcp['configured']})."
+            )
+            st.caption(
+                "MCP uses its own policy and credentials. Manage it on the MCP keys page. "
+                "Dashboard passwords do not protect explicitly public HTTP methods or llms.txt."
+            )
+            st.caption(
+                f"Direct local control: {'enabled' if settings['policy']['local_control'] else 'disabled'}. "
+                f"Current caller: {entrances['actor']}. System operations still require operator authority or system scopes."
+            )
+            public = entrances["declared_public_api"]
+            st.markdown("**Declared public HTTP methods**")
+            for path in public:
+                st.caption(path)
+            if not public:
+                st.caption("No public HTTP methods declared by installed plugins.")
+            st.caption(
+                "Declared methods are served only while their plugin is available."
+            )
     if context.can("system.settings.manage"):
         with st.expander("Application access policy"):
             mode = st.selectbox(
@@ -145,6 +171,28 @@ def render(context):
             local = st.checkbox(
                 "Allow direct local control", value=settings["policy"]["local_control"]
             )
+            failure = None
+            if "failure_modes" in settings.get("policy_options", {}):
+                failure = st.selectbox(
+                    "When Dashboard authentication is unavailable",
+                    ["closed", "public"],
+                    index=0 if settings["policy"]["failure_mode"] == "closed" else 1,
+                    format_func=lambda value: {
+                        "closed": "Deny protected business access (recommended)",
+                        "public": "Allow anonymous business access",
+                    }[value],
+                )
+                if failure == "public":
+                    st.warning(
+                        "If authentication fails or is disabled, anonymous visitors receive all business scopes."
+                    )
+                st.caption(
+                    "This applies to protected Dashboard/service access. MCP and public HTTP keep their own rules."
+                )
+            else:
+                st.caption(
+                    "This Core version cannot edit the authentication failure policy here."
+                )
             if st.button("Save access policy"):
                 try:
                     context.auth(
@@ -153,6 +201,9 @@ def render(context):
                             "mode": mode,
                             "local_control": local,
                             "expected_revision": settings["revision"],
+                            **(
+                                {"failure_mode": failure} if failure is not None else {}
+                            ),
                         },
                     )
                     st.rerun()

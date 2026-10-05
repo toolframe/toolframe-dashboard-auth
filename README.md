@@ -2,8 +2,24 @@
 
 The `dashboard-auth` provider supplies password and configured OIDC login choices,
 plus Streamlit access-management pages. It depends on the `toolframe.auth` service
-and SDK 0.2. Core handles cookies, admission and protected auth API calls; this
+and SDK 0.2–0.3. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
+
+Install the wheel in a running application with compatible Auth and Dashboard
+providers, then open **Access passwords** as a local operator:
+
+```sh
+toolframe --home APP plugin add /path/to/toolframe_dashboard_auth-0.1.3-py3-none-any.whl --enable
+```
+
+With Core 0.6.1, **Access by entrance** reports Dashboard/service access, independent
+MCP policy, declared public HTTP methods and the current local/operator context.
+The policy form lets settings administrators choose closed or public behavior
+when Dashboard authentication fails. Closed is the default for new applications;
+existing application choices are preserved. Older Core versions keep the existing
+policy controls but do not offer the unsupported failure-policy editor. Public
+HTTP declarations and llms documents remain public, and method scopes do not
+provide per-person row isolation.
 
 With compatible Core/Auth and `toolframe-oidc-auth` installed, the login page
 loads provider buttons from Core's safe provider catalogue. **Connected agents**

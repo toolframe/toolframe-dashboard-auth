@@ -40,9 +40,16 @@ class Context:
         self.calls = []
         self.records = []
         self.fail_create = False
+        self.settings_manager = False
+        self.policy = {
+            "mode": "public",
+            "local_control": True,
+            "failure_mode": "closed",
+        }
+        self.policy_options = {"failure_modes": ["closed", "public"]}
 
     def can(self, scope):
-        return scope != "system.settings.manage"
+        return self.settings_manager or scope != "system.settings.manage"
 
     def auth(self, action, params=None):
         self.calls.append((action, params))
@@ -60,9 +67,28 @@ class Context:
                         "category": "system",
                     },
                 },
-                "policy": {"mode": "public", "local_control": True},
+                "policy": self.policy.copy(),
+                "policy_options": self.policy_options,
+                "entrances": {
+                    "dashboard": {
+                        "mode": self.policy["mode"],
+                        "configured": self.policy["mode"],
+                    },
+                    "mcp": {"mode": "public", "configured": "public"},
+                    "actor": "local",
+                    "declared_public_api": ["/api/notes/notes.notes/list_notes"],
+                },
                 "revision": "revision",
             }
+        if action == "policy":
+            self.policy.update(
+                {
+                    key: value
+                    for key, value in params.items()
+                    if key != "expected_revision"
+                }
+            )
+            return {"mode": self.policy["mode"]}
         if action == "list":
             return {"credentials": [record.copy() for record in self.records]}
         if action == "create":
@@ -102,6 +128,52 @@ def app(context):
 
 def widget(ui, kind, label):
     return next(item for item in getattr(ui, kind) if item.label == label)
+
+
+def test_access_entrances_and_failure_policy_can_be_reviewed_and_saved():
+    context = Context()
+    context.settings_manager = True
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    assert not ui.exception
+    assert any("**MCP:** public" in item.value for item in ui.markdown)
+    assert any("/api/notes/notes.notes/list_notes" == item.value for item in ui.caption)
+    assert any("Current caller: local" in item.value for item in ui.caption)
+    failure = widget(ui, "selectbox", "When Dashboard authentication is unavailable")
+    assert failure.value == "closed"
+    widget(ui, "selectbox", "Dashboard access").select("protected").run()
+    widget(ui, "selectbox", "When Dashboard authentication is unavailable").select(
+        "public"
+    ).run()
+    assert any(
+        "anonymous visitors receive all business scopes" in item.value
+        for item in ui.warning
+    )
+    widget(ui, "button", "Save access policy").click().run()
+    assert not ui.exception
+    assert (
+        "policy",
+        {
+            "mode": "protected",
+            "local_control": True,
+            "failure_mode": "public",
+            "expected_revision": "revision",
+        },
+    ) in context.calls
+
+
+def test_older_core_does_not_offer_an_unsupported_failure_policy_control():
+    context = Context()
+    context.settings_manager = True
+    context.policy_options = {}
+    ui = AppTest.from_function(app, args=(context,), default_timeout=15).run()
+    assert not any(
+        item.label == "When Dashboard authentication is unavailable"
+        for item in ui.selectbox
+    )
+    widget(ui, "button", "Save access policy").click().run()
+    assert "failure_mode" not in next(
+        params for action, params in context.calls if action == "policy"
+    )
 
 
 def test_create_defaults_exclude_system_scopes_and_reveals_secret_once():
