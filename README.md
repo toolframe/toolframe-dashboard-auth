@@ -5,11 +5,11 @@ plus Streamlit access-management pages. It depends on the `toolframe.auth` servi
 and SDK 0.2–0.3. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
 
-Install the wheel in a running application with compatible Auth and Dashboard
+Install the package in a running application with compatible Auth and Dashboard
 providers, then open **Access passwords** as a local operator:
 
 ```sh
-toolframe --home APP plugin add /path/to/toolframe_dashboard_auth-0.1.3-py3-none-any.whl --enable
+toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.1.3 --enable
 ```
 
 With Core 0.6.1, **Access by entrance** reports Dashboard/service access, independent
@@ -80,6 +80,8 @@ This runs the presentation tests against a newly built wheel, checks both
 distributions, and verifies a separate installation with only runtime dependencies.
 See [CI and publishing](docs/ci.md) for the pinned SDK revision, workflow triggers,
 release prerequisites and local validation limits.
+
+For release validation and Trusted Publisher setup, see [releasing](docs/releasing.md).
 
 ## License
 

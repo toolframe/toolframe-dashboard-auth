@@ -4,7 +4,7 @@
 
 Use Git, Bash, Python **3.14.7** and uv **0.12.8**, with network access to PyPI.
 The SDK checkout must contain commit
-`871416a9f9cbcfa79298235781ff193e1ad08a12` (SDK 0.2.0).
+`ef91b609137a5fe7bae8e0c893e74b096ff06ffe` (SDK 0.3.0).
 
 ```sh
 uv python install 3.14.7
@@ -56,7 +56,7 @@ Workflow and shell syntax checks can also be run from the repository root:
 ```sh
 actionlint .github/workflows/*.yml
 bash -n scripts/ci.sh
-python3.14 scripts/check_release_tag.py refs/tags/v0.1.1
+python3.14 scripts/check_release_tag.py refs/tags/v0.1.3
 ```
 
 ## GitHub Actions
@@ -79,42 +79,14 @@ GitHub owner. The dependency repository must be named `toolframe-sdk`; its owner
 defaults to `github.repository_owner`. Set the repository Actions variable
 `TOOLFRAME_REPOSITORY_OWNER` if the SDK lives under another trusted owner. Fork
 PRs still fetch from this configured/base owner, never the PR author's owner.
-The SDK repository must be publicly readable for this credential-free
-cross-repository checkout. A private SDK requires a separately designed read-only
-credential arrangement; the current repository's `GITHUB_TOKEN` cannot read a
-different private repository by default.
+Public siblings need no additional token. For private SDK access, configure the
+read-only `TOOLFRAME_READ_TOKEN` described in [releasing](releasing.md). The
+current repository's `GITHUB_TOKEN` cannot read a different private repository.
 
-## Prepare TestPyPI and PyPI publishing
+## Publication
 
-`publish.yml` is manual only. Its `environment` choice defaults to `testpypi` and
-also offers `pypi`. The selected Git ref must be exactly
-`refs/tags/v<project.version>`; the current version requires `v0.1.1`. A branch,
-missing `v`, or different version fails before validation and upload.
-
-Configure these external prerequisites before running it:
-
-1. Make `publish.yml` available on the repository's default branch so GitHub can
-   offer manual dispatch. Ensure the matching version tag contains these workflow
-   files and the intended release source.
-2. Create GitHub environments named `testpypi` and `pypi`. Configure their allowed
-   deployment tags and any required reviewers to suit release policy.
-3. On **each** index, configure an existing or pending GitHub Trusted Publisher
-   for package `toolframe-dashboard-auth`: use the actual GitHub owner, this
-   repository's actual name, workflow filename **`publish.yml`**, and the matching
-   environment **`testpypi`** or **`pypi`**. No PyPI API-token secret is used.
-4. Make SDK 0.2.0 available to downstream installers before claiming the released
-   package is installable using an index alone. The local dependency wheel proves
-   installation with real dependencies, not public index availability.
-
-After those settings are ready, manually run **Publish package** on the matching
-tag, first selecting TestPyPI. The tag guard reads `pyproject.toml` from that same
-revision, and both validation jobs rebuild and test that revision. The publishing
-job downloads only this run's validated Linux distributions; it does not check out
-or rebuild source. It uses the selected GitHub environment and the PyPA publish
-action. Only that publishing job receives `id-token: write`, following
-[PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/).
-TestPyPI uses `https://test.pypi.org/legacy/`; PyPI uses the action's default index.
-The workflow does not silently skip files that already exist on an index.
+See [releasing](releasing.md) for dependency order, private repository access,
+Trusted Publisher bindings, version tags and consumer installation checks.
 
 ## Validation limits
 

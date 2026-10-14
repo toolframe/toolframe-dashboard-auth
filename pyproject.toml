@@ -9,8 +9,15 @@ description = "Password login and access management pages for Toolframe"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "byfb", email = "62798989+byfb@users.noreply.github.com" }]
 requires-python = ">=3.14"
 dependencies = ["toolframe-sdk>=0.2,<0.4"]
+
+[project.urls]
+Homepage = "https://github.com/toolframe/toolframe-dashboard-auth"
+Repository = "https://github.com/toolframe/toolframe-dashboard-auth"
+Documentation = "https://github.com/toolframe/toolframe-dashboard-auth#readme"
+Issues = "https://github.com/toolframe/toolframe-dashboard-auth/issues"
 
 [project.entry-points."toolframe.plugins"]
 dashboard-auth = "toolframe_dashboard_auth.plugin:plugin"
