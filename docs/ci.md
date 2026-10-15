@@ -61,7 +61,7 @@ python3.14 scripts/check_release_tag.py refs/tags/v0.1.3
 
 ## GitHub Actions
 
-`ci.yml` handles pull requests, pushes (including tags), and manual runs. It calls
+`ci.yml` handles pull requests, pushes to `main`, and manual runs. It calls
 `validate.yml`, which runs the same local script on `ubuntu-24.04` and `macos-15`,
 with Python 3.14.7 and uv 0.12.8. These labels appear in the
 [official runner list](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
