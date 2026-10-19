@@ -9,10 +9,10 @@ Install the package in a running application with compatible Auth and Dashboard
 providers, then open **Access passwords** as a local operator:
 
 ```sh
-toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.1.3 --enable
+toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.2.0 --enable
 ```
 
-With Core 0.6.1, **Access by entrance** reports Dashboard/service access, independent
+With Core 0.7.0, **Access by entrance** reports Dashboard/service access, independent
 MCP policy, declared public HTTP methods and the current local/operator context.
 The policy form lets settings administrators choose closed or public behavior
 when Dashboard authentication fails. Closed is the default for new applications;

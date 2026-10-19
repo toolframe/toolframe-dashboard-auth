@@ -21,7 +21,7 @@ expected_version = tomllib.loads((project_root / "pyproject.toml").read_text())[
 ]["version"]
 installed = distribution("toolframe-dashboard-auth")
 assert installed.version == expected_version
-assert distribution("toolframe-sdk").version == "0.3.0"
+assert distribution("toolframe-sdk").version == "0.4.0"
 for module in (toolframe_dashboard_auth, toolframe_sdk):
     installed_path = Path(module.__file__).resolve()
     assert installed_path.is_relative_to(Path(sys.prefix).resolve()), installed_path
