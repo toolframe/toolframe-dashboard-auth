@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "toolframe-dashboard-auth"
-version = "0.1.3"
+version = "0.2.0"
 description = "Password login and access management pages for Toolframe"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "byfb", email = "62798989+byfb@users.noreply.github.com" }]
 requires-python = ">=3.14"
-dependencies = ["toolframe-sdk>=0.2,<0.4"]
+dependencies = ["toolframe-sdk>=0.4,<0.5"]
 
 [project.urls]
 Homepage = "https://github.com/toolframe/toolframe-dashboard-auth"

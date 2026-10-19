@@ -4,7 +4,7 @@ export LC_ALL=C
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 sdk_repository="${TOOLFRAME_SDK_REPOSITORY:-$project_root/../toolframe-sdk}"
-sdk_revision=ef91b609137a5fe7bae8e0c893e74b096ff06ffe
+sdk_revision=2cd153ec36c585a9adb5ad566effc2985d9e222d
 python_version=3.14.7
 
 # Neither checkout's .venv, dist, lockfile nor working tree is modified.
