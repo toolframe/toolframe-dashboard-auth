@@ -2,7 +2,7 @@
 
 The `dashboard-auth` provider supplies password and configured OIDC login choices,
 plus Streamlit access-management pages. It depends on the `toolframe.auth` service
-and the supplied SDK `0.4.0+web.1` build. Core handles cookies, admission and protected auth API calls; this
+and the supplied SDK `0.4.1` build. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
 
 Install the package in a running application with a compatible Auth provider.

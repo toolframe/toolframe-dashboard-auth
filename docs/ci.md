@@ -4,7 +4,7 @@
 
 Use Git, Bash, Python **3.14.7** and uv **0.12.8**, with network access to PyPI.
 The SDK checkout must contain commit
-`2cd153ec36c585a9adb5ad566effc2985d9e222d` (SDK 0.4.0).
+`539ced4dbdf9e303ec0f0205a35d65287a480b2a` (SDK 0.4.1).
 
 ```sh
 uv python install 3.14.7
@@ -56,7 +56,7 @@ Workflow and shell syntax checks can also be run from the repository root:
 ```sh
 actionlint .github/workflows/*.yml
 bash -n scripts/ci.sh
-python3.14 scripts/check_release_tag.py refs/tags/v0.1.3
+python3.14 scripts/check_release_tag.py refs/tags/v0.2.1
 ```
 
 ## GitHub Actions

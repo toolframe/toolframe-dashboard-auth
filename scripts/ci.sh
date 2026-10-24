@@ -4,7 +4,7 @@ export LC_ALL=C
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 sdk_repository="${TOOLFRAME_SDK_REPOSITORY:-$project_root/../toolframe-sdk}"
-sdk_revision=2cd153ec36c585a9adb5ad566effc2985d9e222d
+sdk_revision=539ced4dbdf9e303ec0f0205a35d65287a480b2a
 python_version=3.14.7
 
 # Neither checkout's .venv, dist, lockfile nor working tree is modified.
@@ -15,6 +15,7 @@ source_dir="$work_dir/toolframe-dashboard-auth"
 mkdir -p "$source_dir" "$work_dir/toolframe-sdk" "$work_dir/wheelhouse" \
   "$work_dir/dist" "$work_dir/empty-cwd"
 tar --exclude='.git' --exclude='.venv' --exclude='dist' \
+  --exclude='.local' --exclude='.issues' --exclude='.worktrees' --exclude='build' \
   --exclude='__pycache__' --exclude='.pytest_cache' --exclude='.ruff_cache' \
   -cf - -C "$project_root" . | tar -xf - -C "$source_dir"
 git -C "$sdk_repository" archive "$sdk_revision" | tar -xf - -C "$work_dir/toolframe-sdk"
