@@ -4,21 +4,22 @@
 <style>
 :root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:28rem;margin:15vh auto;padding:2rem}h1{font-size:2rem}label,input,button{display:block;width:100%;box-sizing:border-box}input,button{font:inherit;padding:.85rem;margin:.6rem 0 1.2rem;border-radius:.5rem;border:1px solid #888}button{cursor:pointer;background:#2369d8;color:white;border:0}#error{color:#e96565}p{line-height:1.5}a{color:#579aff}
 </style>
-<h1>Toolframe</h1><p>Sign in to open the Dashboard.</p>
+<h1>Toolframe</h1><p>Sign in to continue to your application.</p>
 <div id="identity-providers"></div>
-<form method="post" action="/_toolframe/auth/login">
+<form method="post" action="{{login_url}}">
+<input type="hidden" name="return_to" value="{{return_to}}">
 <label for="password">Access password</label><input id="password" name="password" type="password" required maxlength="1024" autocomplete="current-password" autofocus>
 <button>Sign in</button><p id="error" role="alert"></p></form>
-<p><a href="/_toolframe/session">Operator sign in</a></p>
+<p><a href="{{session_url}}">Operator sign in</a></p>
 <script>
-fetch('/_toolframe/oidc/providers').then(response=>response.ok?response.json():{providers:[]}).then(data=>{
+fetch({{oidc_providers_url_json}}).then(response=>response.ok?response.json():{providers:[]}).then(data=>{
  const target=document.querySelector('#identity-providers');
  for(const provider of data.providers){const link=document.createElement('a');link.href=provider.url;link.textContent='Continue with '+provider.label;const row=document.createElement('p');row.append(link);target.append(row)}
 }).catch(()=>{});
 document.querySelector('form').addEventListener('submit',async event=>{
  event.preventDefault();const button=document.querySelector('button'),error=document.querySelector('#error');button.disabled=true;error.textContent='';
- try{const response=await fetch('/_toolframe/auth/login',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({password:document.querySelector('#password').value})});
- const data=await response.json();if(response.ok){location.assign('/')}else{error.textContent=data.error?.message||'Sign in failed. Please retry.'}}
+ try{const response=await fetch({{login_url_json}},{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({password:document.querySelector('#password').value,return_to:{{return_to_json}}})});
+ const data=await response.json();if(response.ok){location.assign({{return_to_json}})}else{error.textContent=data.error?.message||'Sign in failed. Please retry.'}}
  catch{error.textContent='Connection interrupted. Please retry.'}finally{button.disabled=false}
 });
 </script></html>

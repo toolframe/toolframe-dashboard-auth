@@ -2,14 +2,15 @@
 
 The `dashboard-auth` provider supplies password and configured OIDC login choices,
 plus Streamlit access-management pages. It depends on the `toolframe.auth` service
-and SDK 0.4. Core handles cookies, admission and protected auth API calls; this
+and the supplied SDK `0.4.1` build. Core handles cookies, admission and protected auth API calls; this
 plugin holds no credential database or verifier key.
 
-Install the package in a running application with compatible Auth and Dashboard
-providers, then open **Access passwords** as a local operator:
+Install the package in a running application with a compatible Auth provider.
+The login page works with Web-only applications. If Dashboard is also installed,
+open **Access passwords** as a local operator:
 
 ```sh
-toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.2.0 --enable
+toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.2.1 --enable
 ```
 
 With Core 0.7.0, **Access by entrance** reports Dashboard/service access, independent
@@ -62,7 +63,10 @@ last-login and last-use timestamps. Its page
 requires `system.auth.passwords`; access-policy controls additionally require
 `system.settings.manage`. Core/auth enforce the same rules beyond the UI.
 
-Core serves the login page at `/_toolframe/auth/login`. The existing Dashboard
+Core serves the login page at `/_toolframe/auth/login`. Core 0.8 supplies validated
+relative endpoints and `return_to`, so Web or Dashboard can own root and a
+successful sign-in can return to the original app. Endpoint values are escaped
+separately for HTML and JSON; the login document uses application-neutral wording. The existing Dashboard
 provider owns the common local/public/protected header so it remains available
 when this integration fails or is disabled. Streamlit is supplied by the shared
 Dashboard execution environment, not the business/auth worker.
