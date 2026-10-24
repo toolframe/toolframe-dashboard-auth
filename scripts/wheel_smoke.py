@@ -21,7 +21,7 @@ expected_version = tomllib.loads((project_root / "pyproject.toml").read_text())[
 ]["version"]
 installed = distribution("toolframe-dashboard-auth")
 assert installed.version == expected_version
-assert distribution("toolframe-sdk").version == "0.4.0"
+assert distribution("toolframe-sdk").version == "0.4.1"
 for module in (toolframe_dashboard_auth, toolframe_sdk):
     installed_path = Path(module.__file__).resolve()
     assert installed_path.is_relative_to(Path(sys.prefix).resolve()), installed_path
@@ -61,8 +61,11 @@ provider = DashboardAuth(
     RuntimeContext(None, plugin_id="dashboard-auth", generation="ci")
 )
 result = asyncio.run(provider.invoke("dashboard-auth.presentation", "login", {}))
-html = files("toolframe_dashboard_auth").joinpath("login.html").read_text()
-assert result["html"] == html
+template = files("toolframe_dashboard_auth").joinpath("login.html").read_text()
+assert "{{login_url}}" in template
+html = result["html"]
+assert "{{" not in html
+assert '<html lang="en">' in html
 assert 'name="password"' in html and 'action="/_toolframe/auth/login"' in html
 assert 'name="username"' not in html and 'name="token"' not in html
 print(
