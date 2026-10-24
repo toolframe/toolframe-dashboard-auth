@@ -1,10 +1,14 @@
+import json
+from html import escape
 from importlib.resources import files
+from urllib.parse import urlsplit
 
 from toolframe_sdk import (
     AuthorizationSpec,
     MethodSpec,
     Plugin,
     PluginDefinition,
+    PluginError,
     Requirement,
     Resource,
     ServiceSpec,
@@ -12,10 +16,39 @@ from toolframe_sdk import (
 
 
 class DashboardAuth(Plugin):
+    async def health(self):
+        return {**await super().health(), "capabilities": ["gateway-endpoints-v1"]}
+
     async def invoke(self, service, method, params):
-        return {
-            "html": files("toolframe_dashboard_auth").joinpath("login.html").read_text()
+        endpoints = params.get("endpoints", self.context.endpoints)
+        values = {
+            "login_url": endpoints.get("login_url", "/_toolframe/auth/login"),
+            "session_url": endpoints.get("session_url", "/_toolframe/session"),
+            "oidc_providers_url": endpoints.get(
+                "oidc_providers_url", "/_toolframe/oidc/providers"
+            ),
+            "return_to": params.get("return_to", endpoints.get("landing_url", "/")),
         }
+        for value in values.values():
+            if (
+                not isinstance(value, str)
+                or not value.startswith("/")
+                or value.startswith("//")
+                or urlsplit(value).netloc
+                or urlsplit(value).fragment
+                or any(c in value for c in "\\\r\n\x00")
+            ):
+                raise PluginError(
+                    "gateway_endpoints_invalid", "Login links must be same-origin paths"
+                )
+        template = files("toolframe_dashboard_auth").joinpath("login.html").read_text()
+        for key, value in values.items():
+            template = template.replace("{{" + key + "}}", escape(value, quote=True))
+            template = template.replace(
+                "{{" + key + "_json}}",
+                json.dumps(value).replace("<", "\\u003c").replace(">", "\\u003e"),
+            )
+        return {"html": template}
 
 
 plugin = PluginDefinition(
