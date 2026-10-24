@@ -61,8 +61,11 @@ provider = DashboardAuth(
     RuntimeContext(None, plugin_id="dashboard-auth", generation="ci")
 )
 result = asyncio.run(provider.invoke("dashboard-auth.presentation", "login", {}))
-html = files("toolframe_dashboard_auth").joinpath("login.html").read_text()
-assert result["html"] == html
+template = files("toolframe_dashboard_auth").joinpath("login.html").read_text()
+assert "{{login_url}}" in template
+html = result["html"]
+assert "{{" not in html
+assert '<html lang="en">' in html
 assert 'name="password"' in html and 'action="/_toolframe/auth/login"' in html
 assert 'name="username"' not in html and 'name="token"' not in html
 print(
