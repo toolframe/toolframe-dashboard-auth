@@ -10,7 +10,7 @@ The login page works with Web-only applications. If Dashboard is also installed,
 open **Access passwords** as a local operator:
 
 ```sh
-toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.2.1 --enable
+toolframe --home APP plugin add pypi:toolframe-dashboard-auth==0.2.2 --enable
 ```
 
 With Core 0.7.0, **Access by entrance** reports Dashboard/service access, independent
