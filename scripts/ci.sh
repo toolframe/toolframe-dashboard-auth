@@ -7,10 +7,16 @@ sdk_repository="${TOOLFRAME_SDK_REPOSITORY:-$project_root/../toolframe-sdk}"
 sdk_revision=539ced4dbdf9e303ec0f0205a35d65287a480b2a
 python_version=3.14.7
 
-# Neither checkout's .venv, dist, lockfile nor working tree is modified.
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/dashboard-auth-ci.XXXXXX")"
+# Run the shell checks inside an owned, disposable workspace. The wrapper saves
+# diagnostics before cleanup and retains failed or active environments.
+python_path="$(uv python find --system "$python_version")"
+if [[ -z "${TOOLFRAME_TEST_WORKSPACE:-}" ]]; then
+  exec "$python_path" "$project_root/scripts/verification_workspace.py" \
+    --prefix dashboard-auth-ci- -- bash "$project_root/scripts/ci.sh" "$@"
+fi
+work_dir="$TOOLFRAME_TEST_WORKSPACE"
+artifacts_dir="${TOOLFRAME_TEST_ARTIFACTS:?Run validation through the workspace wrapper}"
 printf 'Validation workspace: %s\n' "$work_dir"
-trap 'printf "Validation workspace retained at: %s\n" "$work_dir"' EXIT
 source_dir="$work_dir/toolframe-dashboard-auth"
 mkdir -p "$source_dir" "$work_dir/toolframe-sdk" "$work_dir/wheelhouse" \
   "$work_dir/dist" "$work_dir/empty-cwd"
@@ -24,7 +30,6 @@ printf 'SDK revision: %s\n' "$sdk_revision"
 unset PYTHONPATH PYTHONHOME VIRTUAL_ENV
 export PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 UV_NO_PROGRESS=1
 export UV_CACHE_DIR="$work_dir/uv-cache"
-python_path="$(uv python find --system "$python_version")"
 "$python_path" --version
 uv --version
 cd "$source_dir"
@@ -63,7 +68,10 @@ uv pip check --python "$runtime_python"
 cd "$work_dir/empty-cwd"
 "$runtime_python" -I "$source_dir/scripts/wheel_smoke.py"
 
+dist_dir="$artifacts_dir/dist"
+mkdir "$dist_dir"
+cp "$work_dir"/dist/*.whl "$work_dir"/dist/*.tar.gz "$dist_dir/"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-  printf 'dist-dir=%s\n' "$work_dir/dist" >> "$GITHUB_OUTPUT"
+  printf 'dist-dir=%s\n' "$dist_dir" >> "$GITHUB_OUTPUT"
 fi
-printf 'All validation passed. Distributions: %s/dist\n' "$work_dir"
+printf 'All validation passed. Distributions: %s\n' "$dist_dir"

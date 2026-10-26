@@ -17,11 +17,23 @@ By default the script reads `../toolframe-sdk`. To use a different checkout:
 TOOLFRAME_SDK_REPOSITORY=/absolute/path/to/toolframe-sdk bash scripts/ci.sh
 ```
 
-Each invocation creates and prints a new temporary workspace. It copies this
-working tree and archives the exact SDK commit there; it does not build from
+Each invocation creates and prints a new workspace under `build/verification/`.
+It copies this working tree and archives the exact SDK commit there; it does not build from
 the SDK's current working tree. It leaves both original repositories, their
 lockfiles, existing `.venv` directories and existing `dist` directories alone.
-The temporary workspace is retained on success or failure for inspection.
+Successful validation copies the wheel and sdist to `build/ci/<run>/dist/` before
+removing the temporary environments and cache. `GITHUB_OUTPUT` points to this
+retained distribution directory. Reports and command logs remain under
+`.local/verification/`; each `workspace.json` records the cleanup outcome.
+
+The latest failed workspace is retained for up to seven days; subsequent runs
+prune older failures after checking process command lines and open files. Active
+environments, changed ownership and unknown activity are preserved. Automatic
+cleanup requires POSIX `ps` and `lsof`. Existing unmarked temporary directories are
+not adopted. Set `TOOLFRAME_KEEP_TEST_WORKSPACE=1` to retain a specific workspace
+explicitly, including after successful validation.
+An owned workspace left by an exited verifier gets a lifecycle report before it
+can expire; any remaining child process still prevents removal.
 
 The script performs these checks, stopping on any failure:
 
