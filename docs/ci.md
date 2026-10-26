@@ -56,7 +56,7 @@ Workflow and shell syntax checks can also be run from the repository root:
 ```sh
 actionlint .github/workflows/*.yml
 bash -n scripts/ci.sh
-python3.14 scripts/check_release_tag.py refs/tags/v0.2.1
+python3.14 scripts/check_release_tag.py refs/tags/v0.2.2
 ```
 
 ## GitHub Actions
